@@ -762,6 +762,13 @@ class ZidooClient:
             ret = json.dumps({"method": method, "params": [], "id": 1, "version": "1.0"})
         return ret
 
+    async def _init_network_safe(self):
+        """Initialize network shares in the background, never raising."""
+        try:
+            await self._init_network()
+        except Exception as ex:  # pylint: disable=W0718
+            _LOGGER.warning("[%s] Network shares initialisation failed: %s", self._device_config.address, ex)
+
     async def _init_network(self):
         """Initialize network search on device."""
         # await self._req_json("ZidooFileControl/v2/searchUpnp")
@@ -772,7 +779,15 @@ class ZidooClient:
             if data and data["count"] > 0:
                 for item in data["list"]:
                     url = urllib.parse.quote(item.get("url"), safe="")
-                    await self._req_json(f"ZidooFileControl/v2/getFiles?requestCount=100&startIndex=0&sort=0&url={url}")
+                    # A saved share that no longer answers must not stop the others (nor the connection).
+                    try:
+                        await self._req_json(
+                            f"ZidooFileControl/v2/getFiles?requestCount=100&startIndex=0&sort=0&url={url}"
+                        )
+                    except Exception as ex:  # pylint: disable=W0718
+                        _LOGGER.warning(
+                            "[%s] Saved network share %s not reachable: %s", self._device_config.address, url, ex
+                        )
         # gets current song list (and appears to initialize network shared on old devices)
         await self.get_music_playlist()
         # print(f"SONG_LIST: {self._song_list}")
@@ -813,8 +828,10 @@ class ZidooClient:
             if response and response.get("status") == 200:
                 _LOGGER.debug("connected: %s", response)
                 self._power_status = True
-                await self._init_network()
+                # Start the playback polling first: initialising the network shares can fail or take long
+                # (a dead saved share times out), and the player state must not depend on it.
                 await self.start_polling()
+                self._event_loop.create_task(self._init_network_safe())
                 return response
             await self.start_polling()
         except Exception as ex:
