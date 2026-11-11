@@ -90,6 +90,9 @@ class Events(StrEnum):
 
 _LOGGER = logging.getLogger(__name__)
 
+# Identifier of the media library root (browse_media with no media_id).
+ROOT_MEDIA_ID = "zidoo://root"
+
 VERSION = "0.3.2"
 TIMEOUT = 5  # default timeout
 TIMEOUT_INFO = 1  # for playing info
@@ -325,7 +328,10 @@ class ZidooClient:
         self._browsing_shortcuts = [x.value for x in ZDEFAULT_SHORTCUTS]
         try:
             self._browsing_shortcuts = [
-                ZidooUrls(x.upper().strip()) for x in self._device_config.browsing_categories.split(",")
+                # Categories are stored by name ("movies,tv_shows"): look them up by name, not by value.
+                ZidooUrls[x.upper().strip()].value
+                for x in self._device_config.browsing_categories.split(",")
+                if x.strip()
             ]
         except Exception:  # pylint: disable=W0718
             pass
@@ -539,6 +545,12 @@ class ZidooClient:
             self._source_list = [ZCONTENT_VIDEO, ZCONTENT_MUSIC]
             for key in sources:
                 self._source_list.append(key)
+
+    def remember_websocket(self, websocket: Any | None) -> None:
+        """Keep the remote's connection to read its language (browsing titles), if not known yet."""
+        if self._localization is None and websocket:
+            self._websocket = websocket
+            asyncio.create_task(self.update_localization(websocket))
 
     async def update_localization(self, websocket: Any | None = None):
         """Extract localization information."""
@@ -2254,7 +2266,8 @@ class ZidooClient:
         """Return root media item."""
         root_item = BrowseMediaItem(
             title=self.get_localized("Media Library"),
-            media_id="",
+            # ucapi refuses an empty media_id: the root needs a real identifier.
+            media_id=ROOT_MEDIA_ID,
             media_class=MediaClass.DIRECTORY.value,
             media_type=MediaContent.URL.value,
             can_browse=True,
@@ -2315,10 +2328,15 @@ class ZidooClient:
             start = (paging.page - 1) * paging.limit
             max_count = paging.limit
 
-            if not media_id:
-                root_item = await self._get_browsing_root()
-                paging.count = len(root_item.items if root_item.items else [])
-                return root_item, paging
+            if not media_id or media_id == ROOT_MEDIA_ID:
+                if not query:
+                    root_item = await self._get_browsing_root()
+                    paging.count = len(root_item.items if root_item.items else [])
+                    return root_item, paging
+                # Search from the remote's search screen (no folder selected): search the movie library.
+                media_id = ROOT_MEDIA_ID
+                if not media_type:
+                    media_type = MediaContent.VIDEO
 
             root_item = BrowseMediaItem(
                 title=self.get_localized("Files"),

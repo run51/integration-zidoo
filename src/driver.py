@@ -118,6 +118,9 @@ async def on_subscribe_entities(websocket: Any, entity_ids: list[str]) -> None:
         device_id = entity.deviceid
         if device_id in _configured_devices:
             device = _configured_devices[device_id]
+            # Devices configured at startup never got the remote's connection: without it the
+            # media library stays in English (localization is read through this websocket).
+            device.remember_websocket(websocket)
             if isinstance(entity, media_player.ZidooMediaPlayer):
                 api.configured_entities.update_attributes(
                     entity_id, filter_attributes(device.attributes, ucapi.media_player.Attributes)
