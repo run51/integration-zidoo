@@ -49,6 +49,7 @@ class ConfigDevice:
     always_on: bool | None = field(default=False)
     refresh_interval: int | None = field(default=10)
     sensor_include_device_name: bool | None = field(default=True)
+    sensor_small_text: bool | None = field(default=False)
     browsing_categories: str = field(default=",".join([x.name.lower() for x in ZDEFAULT_SHORTCUTS]))
 
     # pylint: disable=R0801
@@ -151,6 +152,7 @@ class Devices:
                 item.always_on = device_instance.always_on
                 item.refresh_interval = device_instance.refresh_interval
                 item.browsing_categories = device_instance.browsing_categories
+                item.sensor_small_text = device_instance.sensor_small_text
                 return self.store()
         return False
 

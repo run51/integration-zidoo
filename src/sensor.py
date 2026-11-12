@@ -5,6 +5,7 @@ Sensor entity functions.
 :license: Mozilla Public License Version 2.0, see LICENSE for more details.
 """
 
+import html
 import logging
 from typing import Any
 
@@ -62,12 +63,22 @@ class ZidooSensor(ZidooEntity, Sensor):
     @property
     def state(self) -> States:
         """Return sensor state."""
-        raise self._state
+        return self._state
 
     @property
     def sensor_value(self) -> str:
         """Return sensor value."""
         raise NotImplementedError()
+
+    def format_value(self, value: Any) -> Any:
+        """Shrink the value text on the remote when configured.
+
+        The remote shows sensor values in a large font (36 px). Its Qt text widget renders simple HTML, and
+        <font size='1'> scales the text to 70 % (about 25 px, the size of the sensor name).
+        """
+        if not self._config_device.sensor_small_text or not isinstance(value, str) or not value:
+            return value
+        return f"<font size='1'>{html.escape(value, quote=False)}</font>"
 
     def update_attributes(self, update: dict[str, Any] | None = None) -> dict[str, Any] | None:
         """Return updated sensor value from full update if provided or sensor value if no udpate is provided."""
@@ -79,10 +90,10 @@ class ZidooSensor(ZidooEntity, Sensor):
                     self._state = new_state
                     attributes[Attributes.STATE] = self._state
             if self.SENSOR_NAME in update:
-                attributes[Attributes.VALUE] = update[self.SENSOR_NAME]
+                attributes[Attributes.VALUE] = self.format_value(update[self.SENSOR_NAME])
             return attributes
         return {
-            Attributes.VALUE: self.sensor_value,
+            Attributes.VALUE: self.format_value(self.sensor_value),
             Attributes.STATE: KODI_SENSOR_STATE_MAPPING.get(self._device.state),
         }
 

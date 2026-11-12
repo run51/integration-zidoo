@@ -379,6 +379,15 @@ class SetupFlow:
                             },
                         },
                         {
+                            "id": "sensor_small_text",
+                            "label": {
+                                "en": "Smaller text for sensor values (about the size of the sensor name)",
+                                "fr": "Texte plus petit pour les valeurs des capteurs (environ la taille du nom du "
+                                "capteur)",
+                            },
+                            "field": {"checkbox": {"value": self._reconfigured_device.sensor_small_text}},
+                        },
+                        {
                             "field": {"textarea": {"value": self._reconfigured_device.browsing_categories}},
                             "id": "browsing_categories",
                             "label": {
@@ -480,6 +489,14 @@ class SetupFlow:
                     "field": {"number": {"value": 10, "min": 5, "max": 120, "steps": 1, "decimals": 0}},
                 },
                 {
+                    "id": "sensor_small_text",
+                    "label": {
+                        "en": "Smaller text for sensor values (about the size of the sensor name)",
+                        "fr": "Texte plus petit pour les valeurs des capteurs (environ la taille du nom du capteur)",
+                    },
+                    "field": {"checkbox": {"value": False}},
+                },
+                {
                     "field": {
                         "textarea": {
                             "value": ",".join([x.name.lower() for x in ZDEFAULT_SHORTCUTS]),
@@ -506,6 +523,7 @@ class SetupFlow:
         # pylint: disable = W0718
         host = msg.input_values["choice"]
         always_on = msg.input_values.get("always_on") == "true"
+        sensor_small_text = msg.input_values.get("sensor_small_text") == "true"
         try:
             refresh_interval = int(msg.input_values.get("refresh_interval", 10))
         except ValueError:
@@ -551,6 +569,7 @@ class SetupFlow:
                 always_on=always_on,
                 refresh_interval=refresh_interval,
                 browsing_categories=browsing_categories,
+                sensor_small_text=sensor_small_text,
             )
         )  # triggers ZidooAVR instance creation
         config.devices.store()
@@ -606,6 +625,7 @@ class SetupFlow:
         net_mac_address = msg.input_values.get("net_mac_address", "")
         wifi_mac_address = msg.input_values.get("wifi_mac_address", "")
         always_on = msg.input_values.get("always_on") == "true"
+        sensor_small_text = msg.input_values.get("sensor_small_text") == "true"
         try:
             refresh_interval = int(msg.input_values.get("refresh_interval", 10))
         except ValueError:
@@ -622,6 +642,7 @@ class SetupFlow:
         self._reconfigured_device.always_on = always_on
         self._reconfigured_device.refresh_interval = refresh_interval
         self._reconfigured_device.browsing_categories = browsing_categories
+        self._reconfigured_device.sensor_small_text = sensor_small_text
 
         config.devices.add_or_update(self._reconfigured_device)  # triggers ATV instance update
         await asyncio.sleep(1)
