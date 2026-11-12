@@ -12,6 +12,7 @@ References
 import asyncio
 import json
 import logging
+import re
 import socket
 import struct
 import time
@@ -256,6 +257,47 @@ def _get_track_index(data: list[dict[str, Any]], track_name: str, language_code:
     if result:
         return result[0].get("index", -1)
     return -1
+
+
+def _video_definition(width: int, height: int) -> str:
+    """Name the definition of a picture: 4K, 1080p, 720p or SD."""
+    if width >= 3200 or height >= 2000:
+        return "4K"
+    if width >= 1800 or height >= 1000:
+        return "1080p"
+    if width >= 1200 or height >= 700:
+        return "720p"
+    return "SD"
+
+
+def short_video_info(output: str, width: Any = None, height: Any = None) -> str:
+    """Short video description like the OPPO sensors: "4K · Dolby Vision", "1080p · SDR".
+
+    The definition comes from the film itself (the HDMI output may be upscaled to 4K); the dynamic
+    range from the HDMI output line, e.g. "3840X2160P @ 23.976Hz YUV422 12Bits DV(LLDV)".
+    """
+    if not output and not width:
+        return ""
+    try:
+        source_w, source_h = int(width or 0), int(height or 0)
+    except (TypeError, ValueError):
+        source_w, source_h = 0, 0
+    if source_w <= 0 or source_h <= 0:
+        match = re.search(r"(\d{3,4})\s*[xX]\s*(\d{3,4})", output)
+        source_w, source_h = (int(match.group(1)), int(match.group(2))) if match else (0, 0)
+    parts = [_video_definition(source_w, source_h)] if source_w > 0 and source_h > 0 else []
+    upper = output.upper()
+    if re.search(r"\bDV\b|DOLBY\s*VISION|\bDOVI\b", upper):
+        parts.append("Dolby Vision")
+    elif "HDR10+" in upper or "HDR10PLUS" in upper:
+        parts.append("HDR10+")
+    elif "HLG" in upper:
+        parts.append("HLG")
+    elif "HDR" in upper:
+        parts.append("HDR10")
+    elif output:
+        parts.append("SDR")
+    return " · ".join(parts) or output
 
 
 class ZidooClient:
@@ -508,8 +550,11 @@ class ZidooClient:
 
     @property
     def video_info(self) -> str:
-        """Return video info."""
-        return self._media_info.get("video", "")
+        """Return video info: the HDMI output line, or "4K · Dolby Vision" when short video info is configured."""
+        output = self._media_info.get("video", "") or ""
+        if not getattr(self._device_config, "short_video_info", False):
+            return output
+        return short_video_info(output, self._media_info.get("width"), self._media_info.get("height"))
 
     @property
     def audio_info(self) -> str:

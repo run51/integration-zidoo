@@ -379,6 +379,14 @@ class SetupFlow:
                             },
                         },
                         {
+                            "id": "short_video_info",
+                            "label": {
+                                "en": "Short video info (4K · Dolby Vision) instead of the full HDMI output",
+                                "fr": "Info vidéo courte (4K · Dolby Vision) au lieu de la sortie HDMI complète",
+                            },
+                            "field": {"checkbox": {"value": self._reconfigured_device.short_video_info}},
+                        },
+                        {
                             "id": "sensor_font_size",
                             "label": {
                                 "en": "Sensor values text size on the remote: 0 = normal, 1 = 70 %, 2 = 80 %",
@@ -504,6 +512,14 @@ class SetupFlow:
                     "field": {"number": {"value": 10, "min": 5, "max": 120, "steps": 1, "decimals": 0}},
                 },
                 {
+                    "id": "short_video_info",
+                    "label": {
+                        "en": "Short video info (4K · Dolby Vision) instead of the full HDMI output",
+                        "fr": "Info vidéo courte (4K · Dolby Vision) au lieu de la sortie HDMI complète",
+                    },
+                    "field": {"checkbox": {"value": False}},
+                },
+                {
                     "id": "sensor_font_size",
                     "label": {
                         "en": "Sensor values text size on the remote: 0 = normal, 1 = 70 %, 2 = 80 %",
@@ -551,6 +567,7 @@ class SetupFlow:
         except ValueError:
             sensor_font_size = 0
         sensor_color = (msg.input_values.get("sensor_color") or "").strip()
+        short_video_info = msg.input_values.get("short_video_info") == "true"
         try:
             refresh_interval = int(msg.input_values.get("refresh_interval", 10))
         except ValueError:
@@ -596,6 +613,7 @@ class SetupFlow:
                 always_on=always_on,
                 refresh_interval=refresh_interval,
                 browsing_categories=browsing_categories,
+                short_video_info=short_video_info,
                 sensor_font_size=sensor_font_size,
                 sensor_color=sensor_color,
             )
@@ -658,6 +676,7 @@ class SetupFlow:
         except ValueError:
             sensor_font_size = 0
         sensor_color = (msg.input_values.get("sensor_color") or "").strip()
+        short_video_info = msg.input_values.get("short_video_info") == "true"
         try:
             refresh_interval = int(msg.input_values.get("refresh_interval", 10))
         except ValueError:
@@ -674,6 +693,7 @@ class SetupFlow:
         self._reconfigured_device.always_on = always_on
         self._reconfigured_device.refresh_interval = refresh_interval
         self._reconfigured_device.browsing_categories = browsing_categories
+        self._reconfigured_device.short_video_info = short_video_info
         self._reconfigured_device.sensor_font_size = sensor_font_size
         self._reconfigured_device.sensor_color = sensor_color
 
