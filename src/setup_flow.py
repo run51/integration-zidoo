@@ -379,13 +379,28 @@ class SetupFlow:
                             },
                         },
                         {
-                            "id": "sensor_small_text",
+                            "id": "sensor_font_size",
                             "label": {
-                                "en": "Smaller text for sensor values (about the size of the sensor name)",
-                                "fr": "Texte plus petit pour les valeurs des capteurs (environ la taille du nom du "
-                                "capteur)",
+                                "en": "Sensor values text size on the remote: 0 = normal, 1 = 70 %, 2 = 80 %",
+                                "fr": "Taille du texte des valeurs des capteurs : 0 = normale, 1 = 70 %, 2 = 80 %",
                             },
-                            "field": {"checkbox": {"value": self._reconfigured_device.sensor_small_text}},
+                            "field": {
+                                "number": {
+                                    "value": self._reconfigured_device.sensor_font_size,
+                                    "min": 0,
+                                    "max": 7,
+                                    "steps": 1,
+                                    "decimals": 0,
+                                }
+                            },
+                        },
+                        {
+                            "id": "sensor_color",
+                            "label": {
+                                "en": "Sensor values colour (e.g. #4da6ff or lightblue, empty = normal)",
+                                "fr": "Couleur des valeurs des capteurs (ex. #4da6ff ou lightblue, vide = normale)",
+                            },
+                            "field": {"text": {"value": self._reconfigured_device.sensor_color}},
                         },
                         {
                             "field": {"textarea": {"value": self._reconfigured_device.browsing_categories}},
@@ -489,12 +504,20 @@ class SetupFlow:
                     "field": {"number": {"value": 10, "min": 5, "max": 120, "steps": 1, "decimals": 0}},
                 },
                 {
-                    "id": "sensor_small_text",
+                    "id": "sensor_font_size",
                     "label": {
-                        "en": "Smaller text for sensor values (about the size of the sensor name)",
-                        "fr": "Texte plus petit pour les valeurs des capteurs (environ la taille du nom du capteur)",
+                        "en": "Sensor values text size on the remote: 0 = normal, 1 = 70 %, 2 = 80 %",
+                        "fr": "Taille du texte des valeurs des capteurs : 0 = normale, 1 = 70 %, 2 = 80 %",
                     },
-                    "field": {"checkbox": {"value": False}},
+                    "field": {"number": {"value": 0, "min": 0, "max": 7, "steps": 1, "decimals": 0}},
+                },
+                {
+                    "id": "sensor_color",
+                    "label": {
+                        "en": "Sensor values colour (e.g. #4da6ff or lightblue, empty = normal)",
+                        "fr": "Couleur des valeurs des capteurs (ex. #4da6ff ou lightblue, vide = normale)",
+                    },
+                    "field": {"text": {"value": ""}},
                 },
                 {
                     "field": {
@@ -523,7 +546,11 @@ class SetupFlow:
         # pylint: disable = W0718
         host = msg.input_values["choice"]
         always_on = msg.input_values.get("always_on") == "true"
-        sensor_small_text = msg.input_values.get("sensor_small_text") == "true"
+        try:
+            sensor_font_size = int(float(msg.input_values.get("sensor_font_size", 0) or 0))
+        except ValueError:
+            sensor_font_size = 0
+        sensor_color = (msg.input_values.get("sensor_color") or "").strip()
         try:
             refresh_interval = int(msg.input_values.get("refresh_interval", 10))
         except ValueError:
@@ -569,7 +596,8 @@ class SetupFlow:
                 always_on=always_on,
                 refresh_interval=refresh_interval,
                 browsing_categories=browsing_categories,
-                sensor_small_text=sensor_small_text,
+                sensor_font_size=sensor_font_size,
+                sensor_color=sensor_color,
             )
         )  # triggers ZidooAVR instance creation
         config.devices.store()
@@ -625,7 +653,11 @@ class SetupFlow:
         net_mac_address = msg.input_values.get("net_mac_address", "")
         wifi_mac_address = msg.input_values.get("wifi_mac_address", "")
         always_on = msg.input_values.get("always_on") == "true"
-        sensor_small_text = msg.input_values.get("sensor_small_text") == "true"
+        try:
+            sensor_font_size = int(float(msg.input_values.get("sensor_font_size", 0) or 0))
+        except ValueError:
+            sensor_font_size = 0
+        sensor_color = (msg.input_values.get("sensor_color") or "").strip()
         try:
             refresh_interval = int(msg.input_values.get("refresh_interval", 10))
         except ValueError:
@@ -642,7 +674,8 @@ class SetupFlow:
         self._reconfigured_device.always_on = always_on
         self._reconfigured_device.refresh_interval = refresh_interval
         self._reconfigured_device.browsing_categories = browsing_categories
-        self._reconfigured_device.sensor_small_text = sensor_small_text
+        self._reconfigured_device.sensor_font_size = sensor_font_size
+        self._reconfigured_device.sensor_color = sensor_color
 
         config.devices.add_or_update(self._reconfigured_device)  # triggers ATV instance update
         await asyncio.sleep(1)

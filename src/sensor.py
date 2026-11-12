@@ -7,6 +7,7 @@ Sensor entity functions.
 
 import html
 import logging
+import re
 from typing import Any
 
 import ucapi.media_player
@@ -19,6 +20,7 @@ from config import ConfigDevice, ZidooEntity, create_entity_id
 from const import ZidooSensors
 
 _LOG = logging.getLogger(__name__)
+_COLOR_RE = re.compile(r"^(#[0-9a-fA-F]{3,8}|[a-zA-Z]{3,30})$")
 
 KODI_SENSOR_STATE_MAPPING = {
     MediaStates.OFF: States.ON,
@@ -71,14 +73,21 @@ class ZidooSensor(ZidooEntity, Sensor):
         raise NotImplementedError()
 
     def format_value(self, value: Any) -> Any:
-        """Shrink the value text on the remote when configured.
+        """Apply the configured font size and colour to the value text on the remote.
 
-        The remote shows sensor values in a large font (36 px). Its Qt text widget renders simple HTML, and
-        <font size='1'> scales the text to 70 % (about 25 px, the size of the sensor name).
+        The remote shows sensor values in a large font (36 px). Its Qt text widget renders simple HTML:
+        <font size='N'> scales the text (1 = 70 %, 2 = 80 %, 3 = 100 %...) and color='...' sets its colour.
         """
-        if not self._config_device.sensor_small_text or not isinstance(value, str) or not value:
+        size = self._config_device.sensor_font_size or 0
+        color = self._config_device.sensor_color or ""
+        attrs = []
+        if 1 <= size <= 7:
+            attrs.append(f"size='{size}'")
+        if color and _COLOR_RE.match(color):
+            attrs.append(f"color='{color}'")
+        if not attrs or not isinstance(value, str) or not value:
             return value
-        return f"<font size='1'>{html.escape(value, quote=False)}</font>"
+        return f"<font {' '.join(attrs)}>{html.escape(value, quote=False)}</font>"
 
     def update_attributes(self, update: dict[str, Any] | None = None) -> dict[str, Any] | None:
         """Return updated sensor value from full update if provided or sensor value if no udpate is provided."""
