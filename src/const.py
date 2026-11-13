@@ -108,6 +108,10 @@ class ZidooUrls(str, Enum):
     SHARES = "zidoo://files/share"
 
 
+# Library sources (the folders scanned into the movie library: "Films", "Concerts"...), one browsing entry
+# per source name; the ids of the sources merged under that name follow, comma separated.
+SOURCES_URL_PREFIX = "zidoo://sources/"
+
 # Movie Player search keys
 ZVIDEO_FILTER_TYPES: dict[ZidooUrls, int] = {
     ZidooUrls.ALL: 0,

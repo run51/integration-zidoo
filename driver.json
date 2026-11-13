@@ -1,6 +1,6 @@
 {
   "driver_id": "zidootv_driver",
-  "version": "1.10.3-test1",
+  "version": "1.10.3-test2",
   "min_core_api": "0.20.0",
   "name": {
     "en": "Zidoo TV"

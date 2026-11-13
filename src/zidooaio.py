@@ -57,6 +57,7 @@ from const import (
     ZUPNP_SERVERNAME,
     ZVIDEO_FILTER_TYPES,
     ZVIDEO_SEARCH_TYPES,
+    SOURCES_URL_PREFIX,
     MediaEntry,
     ZidooSelects,
     ZidooSensors,
@@ -75,6 +76,8 @@ ERROR_OS_WAIT = 0.5
 THUMBNAIL_WIDTH = 300
 THUMBNAIL_HEIGHT = 200
 DEVICES_REFRESH = 10 * 60
+SOURCES_PAGE = 200  # titles asked per request when a library source is listed
+SOURCE_LIST_TTL = 60  # seconds a merged source list is kept while its pages are browsed
 
 # pylint: disable = C0302,R0915
 
@@ -103,6 +106,28 @@ RETRIES = 3  # default retries
 CONF_PORT = 9529  # default api port
 DEFAULT_COUNT = 250  # default list limit
 UPDATE_LOCK_TIMEOUT = 10.0
+
+
+def group_library_sources(sources: list[dict[str, Any]]) -> list[tuple[str, list[int]]]:
+    """Group the library sources by name without a trailing number: [(name, [ids])], in Zidoo order.
+
+    "Films", "Films 2" and "Films 4" become one "Films" entry. Negative ids (music) are left out.
+    """
+    groups: dict[str, tuple[str, list[int]]] = {}
+    for source in sources:
+        try:
+            source_id = int(source.get("id"))
+        except (TypeError, ValueError):
+            continue
+        name = str(source.get("name") or "").strip()
+        if source_id < 0 or not name:
+            continue
+        base = re.sub(r"\s+\d+$", "", name) or name
+        key = base.casefold()
+        if key not in groups:
+            groups[key] = (base, [])
+        groups[key][1].append(source_id)
+    return list(groups.values())
 
 
 def is_internal_url(media_id: str | None) -> bool:
@@ -380,6 +405,9 @@ class ZidooClient:
             pass
         self._devices_update_timestamp = 0
         self._devices: dict[dict[str, Any], Any] | None = None
+        self._sources: list[tuple[str, list[int]]] | None = None
+        self._sources_update_timestamp = 0.0
+        self._source_lists: dict[str, tuple[float, list[dict[str, Any]]]] = {}
         self._media_id: str | None = None
 
     @property
@@ -1559,6 +1587,56 @@ class ZidooClient:
             return response["devices"]
         return None
 
+    async def get_library_sources(self) -> list[tuple[str, list[int]]]:
+        """Async Return the movie library sources, grouped by name: [(name, [source ids])].
+
+        The sources are the folders scanned into the poster wall. Sources whose names differ only by a
+        trailing number ("Films", "Films 2", "Films 3") are merged under the name without the number.
+        Music (negative id) is left out: it has its own library entries.
+        """
+        if self._sources is not None and self._sources_update_timestamp > time.time() - DEVICES_REFRESH:
+            return self._sources
+        response = await self._req_json("Poster/v2/getFilters", log_errors=False)
+        sources: list[dict[str, Any]] = []
+        if response is not None:
+            raw = response.get("sources")
+            try:
+                sources = json.loads(raw) if isinstance(raw, str) else (raw or [])
+            except ValueError:
+                sources = []
+        self._sources = group_library_sources(sources)
+        self._sources_update_timestamp = time.time()
+        return self._sources
+
+    async def get_source_list(self, media_id: str, page=1, max_count=DEFAULT_COUNT) -> dict[str, Any] | None:
+        """Async Return one page of the titles of library sources (zidoo://sources/<id>[,<id>...]).
+
+        The Zidoo filters one source per request: the titles of merged sources are fetched source by
+        source, then sorted by title. The merged list is kept a minute while its pages are browsed.
+        """
+        cached = self._source_lists.get(media_id)
+        if cached is None or cached[0] < time.time() - SOURCE_LIST_TTL:
+            ids = [int(x) for x in media_id.removeprefix(SOURCES_URL_PREFIX).split(",") if x.strip().lstrip("-").isdigit()]
+            titles: dict[int, dict[str, Any]] = {}
+            for source_id in ids:
+                start = 0
+                while True:
+                    response = await self._req_json(
+                        f"Poster/v2/getFilterAggregations?start={start}&count={SOURCES_PAGE}&source={source_id}"
+                    )
+                    batch = (response or {}).get("array") or []
+                    for item in batch:
+                        titles.setdefault(item.get("id"), item)
+                    if len(batch) < SOURCES_PAGE:
+                        break
+                    start += SOURCES_PAGE
+            items = sorted(titles.values(), key=lambda x: str(x.get("name", "")).casefold().lstrip("…. "))
+            self._source_lists[media_id] = (time.time(), items)
+        else:
+            items = cached[1]
+        first = (page - 1) * max_count
+        return {"status": 200, "data": items[first : first + max_count], "total": len(items)}
+
     async def get_movie_list(
         self, media_id: str | None = None, page=1, max_count=DEFAULT_COUNT
     ) -> dict[str, Any] | None:
@@ -1576,6 +1654,9 @@ class ZidooClient:
 
         def by_id(e):
             return e["id"]
+
+        if media_id is not None and media_id.startswith(SOURCES_URL_PREFIX):
+            return await self.get_source_list(media_id, page, max_count)
 
         filter_type: int | None = None
         if media_id is not None:
@@ -2353,6 +2434,17 @@ class ZidooClient:
                     can_browse=True,
                 )
             )
+        # Library sources ("Films", "Concerts"...): only their titles
+        for name, ids in await self.get_library_sources():
+            root_item.items.append(
+                BrowseMediaItem(
+                    title=name,
+                    media_id=SOURCES_URL_PREFIX + ",".join(str(x) for x in ids),
+                    media_class=MediaClass.DIRECTORY,
+                    media_type=MediaContent.VIDEO,
+                    can_browse=True,
+                )
+            )
         if self._devices is None or self._devices_update_timestamp < time.time() - DEVICES_REFRESH:
             self._devices = await self.get_device_list()
             self._devices_update_timestamp = time.time()
@@ -2540,6 +2632,11 @@ class ZidooClient:
                     entries = [x for x in ZIDOO_MEDIA_ENTRIES if x.media_id == media_id]
                     if len(entries) > 0:
                         root_item.title = self.get_localized(entries[0].title)
+                    elif media_id.startswith(SOURCES_URL_PREFIX):
+                        root_item.media_type = MediaContent.VIDEO
+                        for name, ids in self._sources or []:
+                            if media_id == SOURCES_URL_PREFIX + ",".join(str(x) for x in ids):
+                                root_item.title = name
                 # TV Show
                 else:
                     try:
