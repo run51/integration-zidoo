@@ -37,6 +37,7 @@ from ucapi.select import Attributes as SelectAttributes
 from ucapi.select import States as SelectStates
 from yarl import URL
 
+import images
 from config import ConfigDevice
 from const import (
     ZCMD_STATUS,
@@ -2177,12 +2178,14 @@ class ZidooClient:
         else:
             music_type = ZMUSIC_SEARCH_TYPES.get(media_type, None)
         if music_type is None:
-            return f"http://{self._host}/ZidooPoster/getFile/getBackdrop?id={media_id}&w={width}&h={height}"
-
-        return (
-            f"http://{self._host}/ZidooMusicControl/v2/getImage?id={media_id}&music_type="
-            f"{ZMUSIC_IMAGETYPE[music_type]}&type={music_type}&target={ZMUSIC_IMAGETARGET[music_type]}"
-        )
+            url = f"http://{self._host}/ZidooPoster/getFile/getBackdrop?id={media_id}&w={width}&h={height}"
+        else:
+            url = (
+                f"http://{self._host}/ZidooMusicControl/v2/getImage?id={media_id}&music_type="
+                f"{ZMUSIC_IMAGETYPE[music_type]}&type={music_type}&target={ZMUSIC_IMAGETARGET[music_type]}"
+            )
+        # Through the image cache of the integration on the Remote (unchanged when it does not run)
+        return images.wrap(url)
 
     async def turn_on(self):
         """Async Turn the media player on."""

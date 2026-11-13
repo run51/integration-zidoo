@@ -19,6 +19,7 @@ import ucapi
 from ucapi.media_player import States
 
 import config
+import images
 import media_player
 import selector
 import sensor
@@ -407,6 +408,10 @@ async def main():
     # logging.getLogger("remote").setLevel(level)
     logging.getLogger("sensor").setLevel(level)
     logging.getLogger("selector").setLevel(level)
+    logging.getLogger("images").setLevel(level)
+
+    # Posters and covers kept on the Remote and served from it (see images.py)
+    images.setup(os.path.join(api.config_dir_path, "images"))
 
     config.devices = config.Devices(api.config_dir_path, on_device_added, on_device_removed, on_device_updated)
     for device in config.devices.all():
