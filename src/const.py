@@ -142,7 +142,8 @@ ZIDOO_MEDIA_ENTRIES: list[MediaEntry] = [
     MediaEntry(title="Unwatched", media_id=ZidooUrls.UNWATCHED.value, media_type=MediaContent.VIDEO),
     MediaEntry(title="Other", media_id=ZidooUrls.OTHER.value, media_type=MediaContent.VIDEO),
     MediaEntry(title="All", media_id=ZidooUrls.ALL.value, media_type=MediaContent.VIDEO),
-    MediaEntry(title="Movies", media_id=ZidooUrls.MOVIES.value, media_type=MediaContent.MOVIE),
+    # The poster wall's "movies" filter lists the movie collections (sagas), not the movies
+    MediaEntry(title="Collections", media_id=ZidooUrls.MOVIES.value, media_type=MediaContent.MOVIE),
     MediaEntry(title="TV Shows", media_id=ZidooUrls.TV_SHOWS.value, media_type=MediaContent.TV_SHOW),
     MediaEntry(title="Music", media_id=ZidooUrls.MUSIC.value, media_type=MediaContent.MUSIC),
     MediaEntry(title="Albums", media_id=ZidooUrls.ALBUMS.value, media_type=MediaContent.ALBUM),

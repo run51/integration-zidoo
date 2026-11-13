@@ -8,6 +8,7 @@ Zidoo Client translations.
 TRANSLATIONS = {
     "Videos": {"fr": "Vidéos"},
     "Movies": {"fr": "Films"},
+    "Collections": {"fr": "Sagas"},
     "TV Shows": {"fr": "Séries"},
     "Music": {"fr": "Musique"},
     "Pictures": {"fr": "Images"},
