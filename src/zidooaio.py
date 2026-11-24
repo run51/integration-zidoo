@@ -130,6 +130,29 @@ def group_library_sources(sources: list[dict[str, Any]]) -> list[tuple[str, list
     return list(groups.values())
 
 
+def library_item_info(item: dict[str, Any]) -> str | None:
+    """Line under a title in the media library: rating, definition, HDR, 3D, e.g. "8.2 · 4K · HDR".
+
+    The poster wall tells the definition and HDR of a title (not the kind of HDR: Dolby Vision is
+    reported as HDR). The list rows of the Remote have room for about 23 characters.
+    """
+    parts: list[str] = []
+    rating = item.get("voteAverage")
+    if isinstance(rating, (int, float)) and rating > 0:
+        parts.append(f"{rating:.1f}")
+    for flag, label in (
+        ("is4k", "4K"), ("isFHD", "1080p"), ("is2k", "2K"), ("isHD", "720p"), ("isDvd", "DVD")
+    ):
+        if item.get(flag):
+            parts.append(label)
+            break
+    if item.get("isHdr"):
+        parts.append("HDR")
+    if item.get("is3d"):
+        parts.append("3D")
+    return " · ".join(parts) or None
+
+
 def is_internal_url(media_id: str | None) -> bool:
     """Return true if internal library URL."""
     return media_id is not None and media_id.startswith("zidoo://")
@@ -2675,14 +2698,7 @@ class ZidooClient:
                     )
                     if is_episodes:
                         item_type = MediaContent.EPISODE
-                    subtitles: list[str] = []
-                    if rating := item.get("voteAverage", None):
-                        subtitles.append(f"{round(rating, 1)}")
-                    if year := item.get("year"):
-                        subtitles.append(str(year))
-                    subtitle = None
-                    if len(subtitles) > 0:
-                        subtitle = " - ".join(subtitles)
+                    subtitle = library_item_info(item)
                     root_item.items.append(
                         BrowseMediaItem(
                             title=item.get("name", ""),
